@@ -28,6 +28,7 @@ from core import client, tree, events, save_events
 
 import commands.slash_commands                       # noqa: F401 — registers all commands
 from commands.slash_commands import GuideNav
+from commands.cmds.pet_cmds import PetNav
 from scheduling.views.views import make_signup_view
 import tasks
 
@@ -41,6 +42,7 @@ async def on_ready():
     for ev in events.values():
         client.add_view(make_signup_view(ev), message_id=ev.get("message_id"))
     client.add_dynamic_items(GuideNav)
+    client.add_dynamic_items(PetNav)
     # Discord rate-limits command syncing heavily, so only sync when the
     # command set actually changed since last launch (tracked by a hash).
     await _sync_commands_if_changed()

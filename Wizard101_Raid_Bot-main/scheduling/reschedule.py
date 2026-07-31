@@ -181,10 +181,9 @@ class NotifyChoiceView(discord.ui.View):
         if ev is None:
             await itx.response.send_message("Event gone.", ephemeral=True)
             return
-        mentions = " ".join(f"<@{uid}>"
-                            for lst in ev["signups"].values() for uid in lst)
+        from scheduling.card import roster_lines, ping_string
+        mentions = ping_string(ev)
         start = int(ev["start_ts"])
-        from scheduling.card import roster_lines
         e = discord.Embed(
             title=f"🔄 {ev['raid']} — rescheduled",
             description=(f"New start: <t:{start}:F> (<t:{start}:R>)\n\n"

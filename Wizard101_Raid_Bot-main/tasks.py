@@ -10,35 +10,6 @@ from core import client, events, save_events
 from miscellaneous import history
 import server_config as cfg
 
-# How long to wait after the start-time prompt before auto-cancelling a raid
-# that still hasn't filled. Kept short in test mode for quick iteration.
-AUTO_CANCEL_MINUTES = 10
-
-
-def _is_full(ev: dict) -> bool:
-    """Every role has at least its capacity signed up."""
-    return all(len(ev["signups"].get(r, [])) >= cap
-               for r, cap in ev["roles"].items())
-
-
-def _can_manage(ev: dict, interaction) -> bool:
-    """The raid's creator or a server mod/admin may extend/cancel."""
-    if interaction.user.id == ev.get("creator"):
-        return True
-    return cfg.is_staff(interaction.guild_id, interaction.user)
-
-
-def _notify_tag(ev: dict) -> str:
-    """Who to ping about an under/unfilled raid: only the raid's creator.
-    If the event somehow has no creator, fall back to configured staff so
-    the prompt still reaches someone who can act on it."""
-    creator = ev.get("creator")
-    if creator:
-        return f"<@{creator}>"
-    gid = ev.get("guild_id")
-    staff = cfg.staff_ids(gid) if gid else []
-    return " ".join(f"<@{uid}>" for uid in staff) if staff else "@mods"
-
 
 class RaidUpView(discord.ui.View):
     """Posted at start time. A mod hits 'Raid Up!' to signal go-time and
@@ -59,15 +30,8 @@ class RaidUpView(discord.ui.View):
             await interaction.response.edit_message(
                 content="This raid is no longer available.", view=None)
             return
-        if not _is_full(ev):
-            await interaction.response.send_message(
-                "The roster isn't full anymore — someone left. Fill the open "
-                "spot(s) on the signup card, or extend/cancel the raid.",
-                ephemeral=True)
-            return
-        from scheduling.card import roster_lines
-        pings = " ".join(f"<@{uid}>"
-                         for lst in ev["signups"].values() for uid in lst)
+        from scheduling.card import roster_lines, ping_string
+        pings = ping_string(ev)
         e = discord.Embed(
             title=f"🚀 {ev['raid']} — RAID UP!",
             description=f"It's time to go for **{ev['guild']}**!\n\n"
@@ -78,9 +42,10 @@ class RaidUpView(discord.ui.View):
 
 
 async def _prompt_underfilled(ev: dict, channel, empty: list) -> None:
-    """5 min out and roles are still open — notify only the raid's creator
-    (or fall back to staff if there's no creator) with Extend/Cancel."""
-    tag = _notify_tag(ev)
+    """5 min out and roles are still open — tag mods with Extend/Cancel."""
+    gid = ev.get("guild_id") or getattr(channel.guild, "id", None)
+    staff = cfg.staff_ids(gid) if gid else []
+    tag = " ".join(f"<@{uid}>" for uid in staff) if staff else "@mods"
     total = len(ev["roles"])
     filled = total - len(empty)
     missing = ", ".join(_clean_role(r) for r in empty)
@@ -101,9 +66,10 @@ def _clean_role(role: str) -> str:
 
 
 async def _prompt_empty_raid(ev: dict, channel) -> None:
-    """Nobody signed up by start time — notify only the raid's creator
-    (or fall back to staff if there's no creator) with Extend/Cancel."""
-    tag = _notify_tag(ev)
+    """Nobody signed up by start time — tag mods and offer Extend/Cancel."""
+    gid = ev.get("guild_id") or getattr(channel.guild, "id", None)
+    staff = cfg.staff_ids(gid) if gid else []
+    tag = " ".join(f"<@{uid}>" for uid in staff) if staff else "@mods"
     e = discord.Embed(
         title=f"⚠️ {ev['raid']} — no one signed up",
         description=(
@@ -124,15 +90,9 @@ class StartPromptView(discord.ui.View):
         self.event_id = event_id
 
     async def _staff_only(self, interaction) -> bool:
-        ev = events.get(self.event_id)
-        if ev is None:
-            await interaction.response.edit_message(
-                content="This raid is already gone.", embed=None, view=None)
-            return False
-        if not _can_manage(ev, interaction):
+        if not cfg.is_staff(interaction.guild_id, interaction.user):
             await interaction.response.send_message(
-                "Only the raid's creator or a mod/admin can extend or cancel.",
-                ephemeral=True)
+                "Only mods/admins can extend or cancel.", ephemeral=True)
             return False
         return True
 
@@ -173,7 +133,6 @@ class StartPromptView(discord.ui.View):
         ev["started"] = False
         ev["empty_prompted"] = False
         ev["fill_checked"] = False
-        ev["prompted_at"] = None          # re-arm the 10-min auto-cancel
         save_events(events)
         # refresh the public signup card to show the new time
         try:
@@ -246,66 +205,28 @@ async def reminder_loop():
                         await _prompt_underfilled(ev, channel, empty)
                 save_events(events)
 
-            # At start time, branch on how full the roster is:
-            #   • FULL  → show the Raid Up! page (go-time).
-            #   • partly filled → ask creator/mods to Extend or Cancel.
-            #   • empty → ask creator/mods to Extend or Cancel.
-            # The Raid Up! page is ONLY shown when every role is filled, so it
-            # never appears for a half-empty raid.
+            # At start time: ping the roster, or prompt mods if nobody joined.
             if not ev.get("started") and starts_in <= 0:
                 ev["started"] = True
                 channel = client.get_channel(ev["channel_id"])
+                signed = [uid for lst in ev["signups"].values() for uid in lst]
                 if channel:
-                    if _is_full(ev):
+                    if signed:
                         from scheduling.card import roster_lines
                         e = discord.Embed(
                             title=f"🚦 {ev['raid']} — start time",
                             description=(
-                                f"**{ev['guild']}** — roster is full! A mod, "
-                                "hit **Raid Up!** when everyone's ready.\n\n"
+                                f"**{ev['guild']}** — a mod, hit **Raid Up!** "
+                                "when everyone's ready.\n\n"
                                 + roster_lines(ev)),
                             color=0x5865F2)
                         await channel.send(embed=e,
                                            view=RaidUpView(ev["id"]))
                     else:
-                        # Not enough people. Don't show Raid Up — ask the
-                        # creator/mods to extend or cancel, and start the
-                        # 10-minute auto-cancel clock.
-                        empty = [r for r in ev["roles"]
-                                 if not ev["signups"].get(r)]
-                        signed = [uid for lst in ev["signups"].values()
-                                  for uid in lst]
-                        if signed:
-                            await _prompt_underfilled(ev, channel, empty)
-                        else:
-                            await _prompt_empty_raid(ev, channel)
+                        # No one joined — tag mods and wait for Extend/Cancel.
+                        await _prompt_empty_raid(ev, channel)
                         ev["empty_prompted"] = True
-                        ev["prompted_at"] = now
                 save_events(events)
-
-            # 10 minutes after the start-time prompt, if the raid still isn't
-            # full and no one extended, assume it's dead: auto-cancel and
-            # remove the event entirely.
-            pa = ev.get("prompted_at")
-            if (pa and not _is_full(ev)
-                    and now - pa >= AUTO_CANCEL_MINUTES * 60):
-                channel = client.get_channel(ev["channel_id"])
-                if channel:
-                    e = discord.Embed(
-                        title=f"❌ {ev['raid']} — auto-cancelled",
-                        description=(
-                            f"**{ev['raid']}** ({ev['guild']}) never filled "
-                            f"and no one extended it within "
-                            f"{AUTO_CANCEL_MINUTES} minutes, so it's been "
-                            "cancelled automatically."),
-                        color=0x999999)
-                    try:
-                        await channel.send(embed=e)
-                    except discord.Forbidden:
-                        pass
-                events.pop(ev["id"], None)
-                save_events(events)
-                continue
 
             # Clean up events more than a day old
             if starts_in < -86400:

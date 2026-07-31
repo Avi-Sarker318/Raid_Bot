@@ -1,0 +1,42 @@
+{
+  "1785473711385": {
+    "id": "1785473711385",
+    "guild": "SGD",
+    "raid": "Cabal Revenge Raid",
+    "start_ts": 1785565800,
+    "roles": {
+      "Right 1 (Right)": 1,
+      "Right 2 (Right)": 1,
+      "Right 3 (Right)": 1,
+      "Right 4 (Right)": 1,
+      "Left 1 (Left)": 1,
+      "Left 2 (Left)": 1,
+      "Left 3 (Left)": 1,
+      "Left 4 (Left)": 1
+    },
+    "signups": {
+      "Right 2 (Right)": [
+        1137466222364065943
+      ],
+      "Right 1 (Right)": [
+        1462236007377404068
+      ],
+      "Left 1 (Left)": [
+        1462236007377404068
+      ]
+    },
+    "creator": 1137466222364065943,
+    "channel_id": 1466241510961053919,
+    "message_id": 1532612571251740764,
+    "reminded": false,
+    "fill_checked": false,
+    "started": false,
+    "empty_prompted": false,
+    "prompted_at": null,
+    "guild_id": 1220276954528485436,
+    "duration_h": 3.0,
+    "notes": "",
+    "done": false,
+    "wins": null
+  }
+}

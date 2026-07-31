@@ -10,12 +10,14 @@ is all bot.py needs.
     help_cmd.py          /help
     moderation.py        /testreport  /ban  /unban
     cleanup.py           /cancelraid  /clearhistory  /clearallevents
+    pet_cmds.py          /petcalculator
 """
 from . import (  # noqa: F401 — imported for their command registrations
     cleanup,
     guide_cmds,
     help_cmd,
     moderation,
+    pet_cmds,
     scheduling_cmds,
     server_setup,
 )

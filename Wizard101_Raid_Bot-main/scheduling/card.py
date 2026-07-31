@@ -187,6 +187,19 @@ def roster_inline(ev: dict) -> str:
         for uid in ev["signups"].get(role, []))
 
 
+def ping_string(ev: dict) -> str:
+    """Space-joined @mentions of everyone signed up, each listed once even
+    if an admin placed them in several roles. Order = first role they hold.
+    Discord already collapses duplicate mentions into one notification; this
+    also keeps the visible text clean."""
+    seen: list[int] = []
+    for lst in ev["signups"].values():
+        for uid in lst:
+            if uid not in seen:
+                seen.append(uid)
+    return " ".join(f"<@{uid}>" for uid in seen)
+
+
 def _is_full(ev: dict) -> bool:
     return all(len(ev["signups"].get(r, [])) >= cap
                for r, cap in ev["roles"].items())
@@ -202,7 +215,7 @@ async def _announce_full(interaction, ev: dict) -> None:
                      f"Starts <t:{start}:F> (<t:{start}:R>).\n\n"
                      + roster_lines(ev)),
         color=0x3BA55D)
-    pings = " ".join(f"<@{u}>" for lst in ev["signups"].values() for u in lst)
+    pings = ping_string(ev)
     try:
         await interaction.channel.send(content=pings, embed=e)
     except discord.Forbidden:
@@ -226,7 +239,7 @@ async def _announce_dropout(interaction, ev: dict, role: str, uid: int) -> None:
             f"**Join {_clean(role)}** on the signup card above.\n\n"
             f"__Current lineup__\n{roster_lines(ev)}"),
         color=0xE67E22)
-    team = " ".join(f"<@{u}>" for lst in ev["signups"].values() for u in lst)
+    team = ping_string(ev)
     try:
         await interaction.channel.send(content=f"{tag} {team}".strip(), embed=e)
     except discord.Forbidden:

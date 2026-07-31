@@ -207,10 +207,10 @@ class UserPickView(discord.ui.View):
     async def on_pick(self, itx: discord.Interaction):
         member = self.picker.values[0]
         ev = self.ev
-        # one position per person
-        for lst in ev["signups"].values():
-            if member.id in lst:
-                lst.remove(member.id)
+        # Admins may place the same person in several different roles (e.g.
+        # someone dual-boxing), so we do NOT strip them from other spots here.
+        # Public self-service Join is still one-position-per-person; that's
+        # enforced in SignupButton, not here.
         old = _occupant(ev, self.role)
         ev["signups"][self.role] = [member.id]
         save_events(events)
