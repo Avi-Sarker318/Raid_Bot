@@ -293,6 +293,23 @@ def roots_turn_embed(sk: str, key: str, i: int) -> discord.Embed:
                       note=rt["notes"].get(row[0]))
 
 
+def my_fights_embed(sk: str, role: str) -> discord.Embed:
+    st = _r()["strategies"][sk]
+    e = base_embed(BVR, f"⚔️ {role_icon(role)} {role} — My Fights",
+                   f"{st['name']} • **Which fight are you doing?**")
+    e.add_field(name="⚔️ Onis",
+                value=", ".join(_school_line(x)
+                                for x in oni_role_schools(sk, role)),
+                inline=True)
+    for key, rt in st["roots"].items():
+        if role in (_short(c) for c in rt["cols"]):
+            partner = [c for c in rt["cols"] if _short(c) != role]
+            e.add_field(name="🌱 Roots",
+                        value=f"{ROOTS_LABELS[key]} with "
+                              f"{_pair_text(partner)}", inline=True)
+    return e
+
+
 def role_deck_embed(sk: str, role: str) -> discord.Embed:
     st = _r()["strategies"][sk]
     want = ("Ice", "-Ice") if role == "-ice" else (role,)

@@ -10,6 +10,7 @@ Paths (everything after the leading `bvr|`):
     in                            Elemental: pick Strategy 1 or 2
     s|<k>                         pick your role
     rp|<k>|<role>                 your role's hub
+    mf|<k>|<role>                 your fights: Onis or Roots
     ol|<k>|<role>  o|<k>|<Oni>|<role>  ot|...|<i>   your Onis -> fight -> turns
     r|<k>|<pair>|<role>  rt|...|<i>                 your Roots -> turns
     md|<k>|<role>  mg|<k>|<role>  mgb|...           your deck / gear
@@ -56,7 +57,7 @@ _SECTION = {"in": "in", "s": "in", "rp": "in", "tm": "in", "ol": "in",
             "o": "in", "ot": "in", "r": "in", "rt": "in", "d": "in",
             "dry": "dry", "map": "dry", "out": "out", "op": "out", "oo": "out", "ofa": "out",
             "of": "out", "od": "out", "om": "out", "g": "g", "gg": "g",
-            "gb": "g", "call": "call", "team": "team", "md": "in",
+            "gb": "g", "call": "call", "team": "team", "md": "in", "mf": "in",
             "mg": "in", "mgb": "in"}
 
 
@@ -67,11 +68,13 @@ def _crumb(kind: str, p: list[str]) -> str:
         trail.append("🔥 Elemental")
         if len(p) > 1 and kind not in ("in",):
             trail.append(r["strategies"][p[1]]["name"])
-        if kind in ("rp", "ol", "o", "ot", "r", "rt", "md", "mg", "mgb"):
-            role = p[2] if kind in ("rp", "ol", "md", "mg", "mgb") else p[3]
+        if kind in ("rp", "ol", "o", "ot", "r", "rt", "md", "mg", "mgb", "mf"):
+            role = p[2] if kind in ("rp", "ol", "md", "mg", "mgb", "mf") else p[3]
             trail.append(role)
+        if kind in ("mf", "ol", "o", "ot", "r", "rt"):
+            trail.append("My Fights")
         if kind in ("ol", "o", "ot"):
-            trail.append("Oni fights")
+            trail.append("Onis")
         if kind in ("r", "rt"):
             trail.append("Roots")
         if kind in ("d", "md"):
@@ -153,11 +156,19 @@ def _route(parts: list[str]):
         key = next(kk for kk, rt in r["strategies"][k]["roots"].items()
                    if role in (E._short(c) for c in rt["cols"]))
         return E.role_embed(k, role), _nav([
-            [("⚔️ My Onis", f"bvr|ol|{k}|{role}", P),
-             ("🌱 My Roots", f"bvr|r|{k}|{key}|{role}", P)],
-            [("🃏 My Deck", f"bvr|md|{k}|{role}", P),
+            [("⚔️ My Fights", f"bvr|mf|{k}|{role}", P),
+             ("🃏 My Deck", f"bvr|md|{k}|{role}", P),
              ("🎒 My Gear", f"bvr|mg|{k}|{role}", P)],
             [("⬅ Change role", f"bvr|s|{k}"), HOME]])
+
+    if kind == "mf":                       # your fights: Onis or Roots
+        k, role = parts[1], parts[2]
+        key = next(kk for kk, rt in r["strategies"][k]["roots"].items()
+                   if role in (E._short(c) for c in rt["cols"]))
+        return E.my_fights_embed(k, role), _nav([
+            [("⚔️ Onis", f"bvr|ol|{k}|{role}", P),
+             ("🌱 Roots", f"bvr|r|{k}|{key}|{role}", P)],
+            [(f"⬅ {role}", f"bvr|rp|{k}|{role}"), HOME]])
 
     if kind == "md":
         k, role = parts[1], parts[2]
@@ -188,7 +199,7 @@ def _route(parts: list[str]):
                      f"bvr|o|{k}|{s}|{role}", P)
                     for s in E.oni_role_schools(k, role)]
         return E.oni_list_embed(k, role), _nav(
-            _grid(oni_btns) + [[(f"⬅ {role}", f"bvr|rp|{k}|{role}"), HOME]])
+            _grid(oni_btns) + [[("⬅ My Fights", f"bvr|mf|{k}|{role}"), HOME]])
 
     if kind == "o":
         k, school, role = parts[1], parts[2], parts[3]
@@ -208,7 +219,7 @@ def _route(parts: list[str]):
         k, key, role = parts[1], parts[2], parts[3]
         return E.roots_embed(k, key), _nav([
             [("▶️ Start Turn Guide", f"bvr|rt|{k}|{key}|{role}|0", P)],
-            [(f"⬅ {role}", f"bvr|rp|{k}|{role}"), HOME]])
+            [("⬅ My Fights", f"bvr|mf|{k}|{role}"), HOME]])
 
     if kind == "rt":
         k, key, role, i = parts[1], parts[2], parts[3], int(parts[4])

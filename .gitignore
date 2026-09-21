@@ -1,0 +1,12 @@
+# secrets — never commit your bot token
+.env
+
+# runtime data (live raids, server settings, user prefs)
+data/*.json
+data/commands.sync
+
+# Python junk
+__pycache__/
+*.pyc
+.venv/
+venv/
