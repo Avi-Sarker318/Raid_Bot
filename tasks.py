@@ -31,6 +31,8 @@ class RaidUpView(discord.ui.View):
                 content="This raid is no longer available.", view=None)
             return
         from scheduling.card import roster_lines, ping_string
+        from miscellaneous.names import learn_event
+        await learn_event(ev)
         pings = ping_string(ev)
         e = discord.Embed(
             title=f"🚀 {ev['raid']} — RAID UP!",
@@ -152,6 +154,9 @@ async def reminder_loop():
         now = datetime.now(timezone.utc).timestamp()
         # Monthly rollover: on the 1st, auto-post last month's tracking
         # to each server's last raid channel, then delete it from the bot.
+        # Load names first so the report shows names, not raw user IDs.
+        for sid in history.stale_server_ids():
+            await history.learn_names(sid)
         for sid, chan_id, month, text in history.servers_needing_rollover():
             channel = client.get_channel(chan_id)
             if channel:
@@ -177,6 +182,8 @@ async def reminder_loop():
                 channel = client.get_channel(ev["channel_id"])
                 if channel:
                     from scheduling.card import roster_lines
+                    from miscellaneous.names import learn_event
+                    await learn_event(ev)
                     pings = " ".join(
                         f"<@{uid}>"
                         for lst in ev["signups"].values()
@@ -213,6 +220,8 @@ async def reminder_loop():
                 if channel:
                     if signed:
                         from scheduling.card import roster_lines
+                        from miscellaneous.names import learn_event
+                        await learn_event(ev)
                         e = discord.Embed(
                             title=f"🚦 {ev['raid']} — start time",
                             description=(

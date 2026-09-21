@@ -26,6 +26,7 @@ class HistoryButton(discord.ui.Button):
             await itx.response.send_message(
                 "Only mods/admins can view raid history.", ephemeral=True)
             return
+        await history.learn_names(itx.guild_id)
         summ = history.month_summary(itx.guild_id)
         if summ is None:
             await itx.response.send_message(
@@ -47,6 +48,7 @@ class HistoryDetailView(discord.ui.View):
     @discord.ui.button(label="📋 Show each raid + roles",
                        style=discord.ButtonStyle.secondary)
     async def details(self, itx: discord.Interaction, _):
+        await history.learn_names(itx.guild_id)
         lines = history.raid_roster_lines(itx.guild_id)
         if not lines:
             await itx.response.send_message("No raids yet.", ephemeral=True)
@@ -94,6 +96,7 @@ class ShareConfirmView(discord.ui.View):
     @discord.ui.button(label="Yes — share & delete",
                        style=discord.ButtonStyle.danger)
     async def confirm(self, itx: discord.Interaction, _):
+        await history.learn_names(itx.guild_id)
         summ = history.month_summary(itx.guild_id)
         if summ is None:
             await itx.response.send_message("Nothing to share.", ephemeral=True)

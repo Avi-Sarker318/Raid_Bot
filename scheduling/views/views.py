@@ -40,6 +40,8 @@ def make_signup_view(ev: dict) -> discord.ui.View:
 
 async def refresh_card(ev: dict):
     """Re-render the public card (embed + buttons) after any change."""
+    from miscellaneous import names as N
+    await N.learn_event(ev)            # names instead of raw IDs
     from core import client
     from scheduling.card import build_embed
     try:

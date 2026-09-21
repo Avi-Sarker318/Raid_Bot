@@ -21,6 +21,7 @@ async def testreport(interaction: discord.Interaction):
         await interaction.response.send_message(
             "Staff only.", ephemeral=True)
         return
+    await history.learn_names(interaction.guild_id)
     summ = history.month_summary(interaction.guild_id)
     if summ is None:
         await interaction.response.send_message(
@@ -52,6 +53,9 @@ async def ban(interaction: discord.Interaction, user: discord.User):
         await interaction.response.send_message(
             "The bot owner can't be banned from raids.", ephemeral=True)
         return
+    from miscellaneous import names as N
+    N.remember(interaction.guild_id, user)
+    N.remember(interaction.guild_id, interaction.user)
     cfg.ban_user(interaction.guild_id, user.id)
     # Remove them from any raids they're currently signed up for.
     from core import events, save_events
@@ -62,19 +66,29 @@ async def ban(interaction: discord.Interaction, user: discord.User):
         if ev.get("guild_id") != interaction.guild_id:
             continue
         touched = False
+        left_roles = []
         for role, lst in ev.get("signups", {}).items():
             if user.id in lst:
                 lst.remove(user.id)
                 removed += 1
                 touched = True
+                left_roles.append(role)
         if touched:
             try:
                 await refresh_card(ev)
                 from scheduling.card import post_need_alert
                 await post_need_alert(ev)          # count only, no name
+                from miscellaneous import modlog
+                for role in left_roles:
+                    await modlog.log_leave(ev, user.id, role,
+                                           by=interaction.user.id,
+                                           reason="removed (ban)")
             except Exception:
                 pass
     save_events(events)
+    from miscellaneous import modlog
+    await modlog.log_ban(interaction.guild_id, user.id, interaction.user.id,
+                         True, removed)
     await interaction.response.send_message(
         f"🚫 {user.mention} is now **banned** from joining raids in this "
         f"server. Removed them from {removed} open spot(s). Use **/unban** "
@@ -93,6 +107,12 @@ async def unban(interaction: discord.Interaction, user: discord.User):
         await interaction.response.send_message(
             f"{user.mention} isn't banned.", ephemeral=True)
         return
+    from miscellaneous import names as N
+    N.remember(interaction.guild_id, user)
+    N.remember(interaction.guild_id, interaction.user)
     cfg.unban_user(interaction.guild_id, user.id)
+    from miscellaneous import modlog
+    await modlog.log_ban(interaction.guild_id, user.id, interaction.user.id,
+                         False)
     await interaction.response.send_message(
         f"✅ {user.mention} can join raids again.", ephemeral=True)

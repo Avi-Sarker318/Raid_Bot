@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 
 
 from data.paths import data_file
+from miscellaneous import names as N
 PATH = data_file("history.json")
 
 
@@ -95,7 +96,7 @@ def month_summary(server_id: int) -> tuple[str, str] | None:
     for uid, raids in sorted(per_user.items(),
                              key=lambda kv: -sum(kv[1].values())):
         total = sum(raids.values())
-        lines.append(f"<@{uid}> — **{total}** total")
+        lines.append(f"{N.bold(server_id, uid)} — **{total}** total")
         for raid, n in sorted(raids.items(), key=lambda kv: -kv[1]):
             lines.append(f"  • {raid}: {n}")
 
@@ -115,6 +116,13 @@ def month_summary(server_id: int) -> tuple[str, str] | None:
     return s["month"], text + footer
 
 
+async def learn_names(server_id: int) -> None:
+    """Fetch names for anyone in this month's history we haven't seen."""
+    s = _server(_load(), server_id)
+    uids = {u for r in s["raids"] for u in r.get("roster", {}).values()}
+    await N.learn(server_id, uids)
+
+
 def raid_roster_lines(server_id: int) -> list[str]:
     """Detailed per-event view: each raid with roles filled."""
     data = _load()
@@ -122,7 +130,8 @@ def raid_roster_lines(server_id: int) -> list[str]:
     out = []
     for r in s["raids"]:
         roster = r.get("roster", {})
-        who = ", ".join(f"{role}: <@{uid}>" for role, uid in roster.items())
+        who = ", ".join(f"{role}: {N.bold(server_id, uid)}"
+                        for role, uid in roster.items())
         out.append(f"**{r['raid']}** ({r.get('wins',0)} wins) — {who}")
     return out
 
@@ -137,6 +146,12 @@ def clear_month(server_id: int) -> None:
         if chan:
             data[sid]["last_channel"] = chan
         _save(data)
+
+
+def stale_server_ids() -> list[int]:
+    now = current_month()
+    return [int(sid) for sid, s in _load().items()
+            if s.get("month") and s["month"] != now and s.get("counts")]
 
 
 def servers_needing_rollover() -> list[tuple[int, int, str, str]]:

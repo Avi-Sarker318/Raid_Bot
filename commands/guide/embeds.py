@@ -134,8 +134,62 @@ def fields_into(e: discord.Embed, fields) -> discord.Embed:
 def raid_picker_embed() -> discord.Embed:
     return discord.Embed(
         title="📚 Raid Guides",
-        description="Which raid do you want to see? More guides coming soon.",
+        description=("**Pick a raid** for its fights, decks and gear.\n\n"
+                     "Tools for any raid are underneath — stat caps and "
+                     "tutorials.\nNew here? Tap **❓ How to use /guide**."),
         color=PURPLE)
+
+
+def guide_help_embed() -> discord.Embed:
+    e = discord.Embed(
+        title="❓ How to use /guide",
+        description=("Type **/guide** in any channel. Only **you** can see it, "
+                     "so click around as much as you like."),
+        color=PURPLE)
+    e.add_field(
+        name="1️⃣ Pick your raid",
+        value="📖 **Ghastly Conspiracy** or 📖 **Blighted Veil**.",
+        inline=False)
+    e.add_field(
+        name="2️⃣ Pick your side",
+        value="**Ghastly:** ➡️ Right Side or ⬅️ Left Side\n"
+              "**Blighted Veil:** 🔥 Elemental (Inside) or 🌀 Spirit (Outside)",
+        inline=False)
+    e.add_field(
+        name="3️⃣ Pick your role",
+        value="**Ghastly right side:** Support, Storm 1, Storm 2 or Storm 3\n"
+              "**Blighted Veil inside:** pick Strategy 1 or 2 first, then "
+              "your role (-ice, Stire, Steath…)\n"
+              "*Spirit/Outside and Ghastly left side don't need a role — "
+              "everyone there does the same job.*",
+        inline=False)
+    e.add_field(
+        name="4️⃣ Your role's page",
+        value="⚔️ **My Fights** — only your fights, in order\n"
+              "🃏 **My Deck** — your suggested deck + treasure cards\n"
+              "🎒 **My Gear** — your suggested gear and minimum stats",
+        inline=False)
+    e.add_field(
+        name="▶️ Turn guides",
+        value="Open a fight and tap **Start Turn Guide** to go one turn at a "
+              "time. Use **⬅ Previous / Next ➡**, and **🏠 Overview** to see "
+              "the whole fight again.",
+        inline=False)
+    e.add_field(
+        name="🧰 Tools (main menu)",
+        value="📊 **Stat Caps** • ✨ **Cantrip Tutorial** • ⚔️ **Roshambo "
+              "Tutorial** — these work for any raid.",
+        inline=False)
+    e.add_field(
+        name="💡 Tips",
+        value="• **⬅ Back** buttons keep your role — you never have to pick "
+              "it again.\n"
+              "• Picked the wrong one? Use **Change role** / **Change "
+              "strategy**.\n"
+              "• Buttons keep working even after the bot restarts. Run "
+              "**/guide** again anytime for a fresh menu.",
+        inline=False)
+    return e
 
 
 def sections_embed(raid: str) -> discord.Embed:

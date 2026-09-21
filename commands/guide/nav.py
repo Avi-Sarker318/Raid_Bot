@@ -12,6 +12,7 @@ import discord
 import guides.loader as raid_defs
 from core import ASSETS_DIR
 from miscellaneous.stat_caps import caps_embed
+from .embeds import guide_help_embed
 
 from .embeds import (
     PURPLE, base_embed, cantrip_embed, dice_boss_embed, dice_pair_embed,
@@ -105,21 +106,17 @@ def guide_screen(path: str):
     back_sec = ("🏠 Sections", f"sec")
 
     if kind == "top":
-        rows, cur = [[]], 0
-        for name in raid_defs.RAIDS:
-            r = raid_defs.RAIDS[name]
-            has = name in GUIDE_ENTRY and r["available"]
-            label = name if has else f"🚧 {name}"
-            if len(rows[cur]) == 3:
-                rows.append([]); cur += 1
-            rows[cur].append((label,
-                              GUIDE_ENTRY[name] if has else f"soon|{name}",
-                              P if has else S))
-        # Always-available tools at the bottom of the main menu.
-        rows.append([("📊 Stat Caps", "capsmenu", P),
-                     ("✨ Cantrip Tutorial", "cantrip", P),
-                     ("⚔️ Roshambo Tutorial", "roshambo", P)])
-        return raid_picker_embed(), _nav(rows)
+        # Only raids with a finished guide are listed.
+        raids = [(n, GUIDE_ENTRY[n]) for n in GUIDE_ENTRY
+                 if n in raid_defs.RAIDS and raid_defs.RAIDS[n]["available"]]
+        return raid_picker_embed(), _nav([
+            [(f"📖 {n}", path, P) for n, path in raids],
+            [("📊 Stat Caps", "capsmenu"), ("✨ Cantrip Tutorial", "cantrip"),
+             ("⚔️ Roshambo Tutorial", "roshambo")],
+            [("❓ How to use /guide", "help")]])
+
+    if kind == "help":
+        return guide_help_embed(), _nav([[("📚 Main menu", "top", P)]])
 
     if kind == "capsmenu":
         # Stat caps live under Ghastly's data; show its cap levels.
@@ -172,7 +169,7 @@ def guide_screen(path: str):
     if kind == "sec":                      # step 1: which side?
         return sections_embed(raid), _nav([
             [("➡️ Right Side", "right", P), ("⬅️ Left Side", "left", P)],
-            [("👥 Team Setup", "team"), ("📐 Basics & Gear", "basics"),
+            [("👥 Team Setup", "team"), ("🎒 Gear Setups", "basics"),
              ("📚 Other raids", "top")]])
 
     if kind == "team":
@@ -325,8 +322,20 @@ def guide_screen(path: str):
     if kind == "left":
         return (base_embed(raid, "⬅️ Left Side",
                 "Tanks & Hitters — deck and fights."),
-                _nav([[("🃏 Deck Setup", "ldeck", P),
-                       ("⚔️ Fights", "fights|left", P)], [back_sec]]))
+                _nav([[("⚔️ Fights", "fights|left", P),
+                       ("🃏 Deck Setup", "ldeck", P),
+                       ("🎒 Gear", "lgear", P)], [back_sec]]))
+
+    if kind == "lgear":                    # Tank / Hitter gear
+        guide_set = raid_defs.RAIDS[raid].get("gear", {})
+        if len(parts) > 1:
+            return (gear_embed(raid, parts[1]),
+                    _nav([[("⬅ Gear", "lgear"), ("⬅ Left Side", "left"),
+                           back_sec]]))
+        left = sorted(k for k in guide_set if k.endswith("_gear"))
+        return (base_embed(raid, "🎒 Left Side — Gear", "Tank or Hitter?"),
+                _nav([[(guide_set[k]["title"], f"lgear|{k}", P) for k in left],
+                      [("⬅ Left Side", "left"), back_sec]]))
 
     if kind == "ldeck":
         schools = list(raid_defs.RAIDS[raid]["left_schools"])
@@ -395,39 +404,28 @@ def guide_screen(path: str):
             buttons.append(("Next ➡", f"turn|{side}|{key}|{table_i+1}|0", P))
         return fight_turn_embed(raid, key, table_i, row_i), _nav([buttons])
 
-    if kind == "basics":
-        levels = sorted(raid_defs.RAIDS[raid]["stat_caps"], key=int,
-                        reverse=True)
+    if kind == "basics":                   # every role's gear, one place
         guide_set = raid_defs.RAIDS[raid].get("gear", {})
-        rows = []
         right = [k for k in guide_set if not k.endswith("_gear")]  # right/ files
         left = [k for k in guide_set if k.endswith("_gear")]       # left/ files
+        rows = []
         if right:
             rows.append([(guide_set[k]["title"], f"gear|{k}", P) for k in sorted(right)][:5])
         if left:
             rows.append([(guide_set[k]["title"], f"gear|{k}", P) for k in sorted(left)])
-        rows.append([(f"📊 Level {lvl} Caps", f"caps|{lvl}|basics")
-                     for lvl in levels])
         rows.append([back_sec])
-        return (base_embed(raid, "📐 Basics & Gear",
-                "Gear guides per role, and the stat caps:"), _nav(rows))
+        return (base_embed(raid, "🎒 Gear Setups",
+                "Suggested gear for every role:"), _nav(rows))
 
     if kind == "gear":
         return (gear_embed(raid, parts[1]),
-                _nav([[("⬅ Basics & Gear", "basics"), back_sec]]))
+                _nav([[("⬅ Gear Setups", "basics"), back_sec]]))
 
-    if kind == "caps":
+    if kind == "caps":                     # stat caps live on the main menu
         lvl = parts[1]
-        # parts[2] records where the reader came from: "menu" (main menu's
-        # Stat Caps) or "basics" (a raid's Basics & Gear). The back button
-        # returns them to that spot instead of somewhere they never opened.
-        origin = parts[2] if len(parts) > 2 else "basics"
         others = [l for l in raid_defs.RAIDS[raid]["stat_caps"] if l != lvl]
-        back = (("⬅ Stat Caps", "capsmenu") if origin == "menu"
-                else ("⬅ Basics & Gear", "basics"))
         return (caps_embed(raid, lvl),
-                _nav([[(f"See {o}", f"caps|{o}|{origin}")
-                       for o in sorted(others)],
-                      [back, ("📚 Main menu", "top")]]))
+                _nav([[(f"See {o}", f"caps|{o}|menu") for o in sorted(others)],
+                      [("⬅ Stat Caps", "capsmenu"), ("📚 Main menu", "top")]]))
 
     return raid_picker_embed(), _nav([[("📚 Raids", "top")]])

@@ -90,6 +90,7 @@ async def clearhistory(interaction: discord.Interaction):
         await interaction.response.send_message(
             "Only mods/admins can clear history.", ephemeral=True)
         return
+    await history.learn_names(interaction.guild_id)
     summ = history.month_summary(interaction.guild_id)
     if summ is None:
         await interaction.response.send_message(

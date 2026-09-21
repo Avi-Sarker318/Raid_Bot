@@ -4,6 +4,8 @@ from zoneinfo import ZoneInfo
 
 import discord
 
+from miscellaneous import names as N
+
 import guides.loader
 import guides.loader as raid_defs
 import server_config as cfg
@@ -146,11 +148,14 @@ class RolePickView(discord.ui.View):
             from scheduling.views.views import refresh_card
             await refresh_card(ev)
             await itx.response.edit_message(
-                content=_menu(f"➖ Removed <@{uid}> from **{role}**."),
+                content=_menu(f"➖ Removed {N.bold(itx.guild_id, uid)} from **{role}**."),
                 view=ManageView(ev))
             # A spot opened — tell the channel how many are needed.
             if uid:
                 await _announce_dropout(itx, ev, role, uid)
+                from miscellaneous import modlog
+                await modlog.log_leave(ev, uid, role, by=itx.user.id,
+                                       reason="removed")
             return
         if self.mode == "switch":
             if self.first_role is None:
@@ -170,6 +175,10 @@ class RolePickView(discord.ui.View):
             await itx.response.edit_message(
                 content=_menu(f"🔁 Switched **{a}** ↔ **{b}**."),
                 view=ManageView(ev))
+            from miscellaneous import modlog
+            await modlog.log_mod(ev, itx.guild_id,
+                                 f"{N.bold(itx.guild_id, itx.user.id)} switched **{a}** ↔ "
+                                 f"**{b}**.")
             return
         # add / replace → pick the person
         await itx.response.edit_message(
@@ -212,16 +221,23 @@ class UserPickView(discord.ui.View):
         # Public self-service Join is still one-position-per-person; that's
         # enforced in SignupButton, not here.
         old = _occupant(ev, self.role)
+        N.remember(itx.guild_id, member)
+        N.remember(itx.guild_id, itx.user)
         ev["signups"][self.role] = [member.id]
         save_events(events)
         from scheduling.views.views import refresh_card
         await refresh_card(ev)
-        verb = (f"🔄 Replaced <@{old}> with {member.mention}"
+        verb = (f"🔄 Replaced {N.bold(itx.guild_id, old)} with "
+                f"{N.bold(itx.guild_id, member.id)}"
                 if self.mode == "replace" and old
-                else f"➕ Added {member.mention}")
+                else f"➕ Added {N.bold(itx.guild_id, member.id)}")
         await itx.response.edit_message(
             content=_menu(f"{verb} in **{self.role}**."),
             view=ManageView(ev))
+        from miscellaneous import modlog
+        await modlog.log_mod(ev, itx.guild_id,
+                             f"{N.bold(itx.guild_id, itx.user.id)}: {verb} in "
+                             f"**{self.role}**.")
 
 
 class ManageButton(discord.ui.Button):

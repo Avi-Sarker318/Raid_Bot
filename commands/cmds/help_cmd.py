@@ -53,6 +53,9 @@ async def help_cmd(interaction: discord.Interaction):
             "*(Staff only)*\n"
             "**/assign** — Choose which mods/admins can manage raids. "
             "*(Staff only)*\n"
+            "**/setlog** — Pick a private channel for the mod log: who "
+            "joined, who left and how close to start, mod changes, bans. "
+            "*(Staff only)*\n"
             "**/schedule** — Schedule a raid. "
             "*(Staff only)*"),
         inline=False)

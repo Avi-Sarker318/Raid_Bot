@@ -78,6 +78,8 @@ class RaidBrowser(discord.ui.View):
         filled = sum(len(v) for v in ev["signups"].values())
         total = len(ev["roles"])
         from scheduling.card import roster_lines
+        from miscellaneous.names import learn_event
+        await learn_event(ev)
         roster = roster_lines(ev) or "*No one has signed up yet.*"
         e = discord.Embed(
             title=f"📅 {ev['raid']}",

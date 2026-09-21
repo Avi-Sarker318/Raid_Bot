@@ -6,6 +6,8 @@ import re
 
 import discord
 
+from miscellaneous import names as N
+
 import guides.loader
 import guides.loader as raid_defs
 import server_config as cfg
@@ -100,7 +102,8 @@ def build_embed(ev: dict) -> discord.Embed:
             members = ev["signups"].get(role, [])
             total += cap
             filled += len(members)
-            who = ", ".join(f"<@{uid}>" for uid in members) or "*open*"
+            who = ", ".join(N.bold(ev.get("guild_id"), uid)
+                            for uid in members) or "*open*"
             check = "✅" if len(members) >= cap else "⬜"
             lines.append(f"{check} **{_clean(role)}** — {who}")
         embed.add_field(name=title, value="\n".join(lines), inline=True)
@@ -141,6 +144,7 @@ class SignupButton(discord.ui.Button):
             return
 
         uid = interaction.user.id
+        N.remember(interaction.guild_id, interaction.user)
         if cfg.is_banned(interaction.guild_id, uid):
             await interaction.response.send_message(
                 "⚠️ Something went wrong — you can't join this raid right "
@@ -157,7 +161,7 @@ class SignupButton(discord.ui.Button):
         elif signups:
             # Filled by someone else — only that person can free it
             await interaction.response.send_message(
-                f"**{self.role}** is taken by <@{signups[0]}>. Only they (or "
+                f"**{self.role}** is taken by {N.bold(interaction.guild_id, signups[0])}. Only they (or "
                 "a mod via Manage signups) can free it.", ephemeral=True
             )
             return
@@ -173,6 +177,7 @@ class SignupButton(discord.ui.Button):
         save_events(events)
         from scheduling.views.views import make_signup_view
         # The card itself updates to show the change — no extra ping needed.
+        await N.learn_event(ev)       # names, not raw IDs
         await interaction.response.edit_message(
             embed=build_embed(ev), view=make_signup_view(ev))
 
@@ -198,10 +203,14 @@ class SignupButton(discord.ui.Button):
         if not was_full and _is_full(ev):
             await _announce_full(interaction, ev)
         # Someone left → tell the channel how many are needed (never who).
+        # Names only go to the private mod log.
+        from miscellaneous import modlog
         if left_spot:
             await post_need_alert(ev, interaction.channel)
+            await modlog.log_leave(ev, uid, _clean(self.role))
         else:
             await sync_need_alert(ev)
+            await modlog.log_join(ev, uid, _clean(self.role))
 
 
 def roster_lines(ev: dict) -> str:
@@ -216,14 +225,15 @@ def roster_lines(ev: dict) -> str:
     for grp, pairs in groups.items():
         header = _GROUP_ICON.get(grp, grp or "Positions")
         out.append(f"**{header}**")
-        out += [f"• {_clean(role)} — <@{uid}>" for role, uid in pairs]
+        out += [f"• {_clean(role)} — {N.bold(ev.get('guild_id'), uid)}"
+                for role, uid in pairs]
     return "\n".join(out)
 
 
 def roster_inline(ev: dict) -> str:
     """Compact one-line version: '@user (Role)' — for short pings."""
     return " ".join(
-        f"<@{uid}> ({_clean(role)})"
+        f"{N.bold(ev.get('guild_id'), uid)} ({_clean(role)})"
         for role in ev["roles"]
         for uid in ev["signups"].get(role, []))
 
@@ -248,6 +258,7 @@ def _is_full(ev: dict) -> bool:
 
 async def _announce_full(interaction, ev: dict) -> None:
     """Every spot claimed — post the lineup so everyone sees their position."""
+    await N.learn_event(ev)
     start = int(ev["start_ts"])
     e = discord.Embed(
         title=f"✅ {ev['raid']} — ROSTER FULL",
@@ -357,6 +368,10 @@ class CancelButton(discord.ui.Button):
             return
         del events[self.event_id]
         save_events(events)
+        from miscellaneous import modlog
+        await modlog.log_mod(ev, interaction.guild_id,
+                             f"{N.bold(interaction.guild_id, interaction.user.id)} "
+                             "**cancelled** the raid.")
         embed = discord.Embed(
             title=f"❌ {ev['raid']} — cancelled",
             description=f"Cancelled by {interaction.user.mention}.",

@@ -1,4 +1,4 @@
-"""/setup and /assign — per-server configuration.
+"""/setup, /assign and /setlog — per-server configuration.
 
 /setup names the in-game guilds this server raids for; /assign picks the
 mods and admins allowed to manage raids. Both are staff-gated.
@@ -115,3 +115,46 @@ async def assign(interaction: discord.Interaction):
         view=StaffPickerView(interaction.guild_id),
         ephemeral=True,
     )
+
+
+# ─────────────── COMMAND: /setlog ───────────────
+@tree.command(name="setlog",
+              description="Pick the private channel for the mod log (who "
+                          "joined/left)")
+@discord.app_commands.describe(
+    channel="Private mods-only channel. Leave empty to turn the log off.")
+async def setlog(interaction: discord.Interaction,
+                 channel: discord.TextChannel | None = None):
+    if interaction.guild is None:
+        await interaction.response.send_message(
+            "Run this in a server, not a DM.", ephemeral=True)
+        return
+    if not cfg.is_staff(interaction.guild_id, interaction.user):
+        await interaction.response.send_message(
+            "Only mods/admins can set the mod log.", ephemeral=True)
+        return
+    if channel is None:
+        cfg.set_log_channel(interaction.guild_id, None)
+        await interaction.response.send_message(
+            "📜 Mod log turned **off**. Late leaves (inside 3 hours) will be "
+            "DM'd to the bot owner and staff instead.", ephemeral=True)
+        return
+    perms = channel.permissions_for(interaction.guild.me)
+    if not (perms.send_messages and perms.embed_links):
+        await interaction.response.send_message(
+            f"I can't post in {channel.mention} — give me **Send Messages** "
+            "and **Embed Links** there, then try again.", ephemeral=True)
+        return
+    cfg.set_log_channel(interaction.guild_id, channel.id)
+    await interaction.response.send_message(
+        f"📜 Mod log set to {channel.mention}. Every join, leave (with who "
+        "and how close to start), mod change, ban and cancel goes there.\n"
+        "Keep this channel **mods-only** — it shows names.", ephemeral=True)
+    try:
+        await channel.send(embed=discord.Embed(
+            title="📜 Mod log is on",
+            description=f"Set up by {interaction.user.mention}. Raid joins, "
+                        "leaves, mod changes, bans and cancels will show up "
+                        "here.", color=0x5865F2))
+    except discord.HTTPException:
+        pass

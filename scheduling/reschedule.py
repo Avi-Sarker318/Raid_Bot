@@ -182,6 +182,8 @@ class NotifyChoiceView(discord.ui.View):
             await itx.response.send_message("Event gone.", ephemeral=True)
             return
         from scheduling.card import roster_lines, ping_string
+        from miscellaneous.names import learn_event
+        await learn_event(ev)
         mentions = ping_string(ev)
         start = int(ev["start_ts"])
         e = discord.Embed(

@@ -91,5 +91,16 @@ def is_staff(server_id: int, member) -> bool:
     return bool(perms and perms.manage_guild)
 
 
+def log_channel_id(server_id) -> int | None:
+    if server_id is None:
+        return None
+    return get_server(server_id).get("log_channel_id")
+
+
+def set_log_channel(server_id: int, channel_id: int | None) -> None:
+    get_server(server_id)["log_channel_id"] = channel_id
+    _save(_config)
+
+
 def is_configured(server_id: int) -> bool:
     return bool(guild_names(server_id))
