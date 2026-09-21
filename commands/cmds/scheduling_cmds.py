@@ -78,8 +78,6 @@ class RaidBrowser(discord.ui.View):
         filled = sum(len(v) for v in ev["signups"].values())
         total = len(ev["roles"])
         from scheduling.card import roster_lines
-        from miscellaneous.names import learn_event
-        await learn_event(ev)
         roster = roster_lines(ev) or "*No one has signed up yet.*"
         e = discord.Embed(
             title=f"📅 {ev['raid']}",
@@ -94,8 +92,16 @@ class RaidBrowser(discord.ui.View):
                           f"Event ID {ev['id']}")
         return e
 
+    async def _learn_names(self) -> None:
+        """Load names for the shown raid so it says names, not user IDs."""
+        raids = self._raids()
+        if raids:
+            from miscellaneous.names import learn_event
+            await learn_event(raids[min(self.index, len(raids) - 1)])
+
     async def _refresh(self, itx: discord.Interaction) -> None:
         self._sync_buttons()
+        await self._learn_names()
         await itx.response.edit_message(embed=self.embed(), view=self)
 
     # --- buttons ---
@@ -141,6 +147,7 @@ class RaidBrowser(discord.ui.View):
 async def raids(interaction: discord.Interaction):
     view = RaidBrowser(interaction.guild_id,
                        cfg.is_staff(interaction.guild_id, interaction.user))
+    await view._learn_names()
     await interaction.response.send_message(
         embed=view.embed(), view=view, ephemeral=True)
 
